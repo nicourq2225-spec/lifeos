@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #000000;
+  --color-foreground: #ffffff;
+  
+  --color-card: #111111;
+  --color-card-foreground: #ffffff;
+  
+  --color-primary: #ffffff;
+  --color-primary-foreground: #000000;
+  
+  --color-positive: #22c55e;
+  --color-negative: #ef4444;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    @apply antialiased min-h-screen pb-20;
+  }
+}

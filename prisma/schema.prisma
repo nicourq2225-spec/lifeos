@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Módulo de Finanzas ---
+model Transaction {
+  id          Int      @id @default(autoincrement())
+  amount      Float
+  date        DateTime
+  type        String   // INGRESO, GASTO_NECESARIO, GASTO_INNECESARIO
+  categoryId  Int
+  category    Category @relation(fields: [categoryId], references: [id])
+  description String?
+  banco       String?  // Ej: MercadoPago, Efectivo, Banco Provincia
+}
+
+model Category {
+  id           Int           @id @default(autoincrement())
+  name         String        // Ej: Alquiler, Supermercado
+  parentName   String?       // Ej: Vivienda, Alimentacion
+  type         String        // INGRESO, GASTO_NECESARIO, GASTO_INNECESARIO
+  transactions Transaction[]
+}
+
+model DeliverySession {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  startTime String?
+  endTime   String?
+  hours     Float?
+  earnings  Int?
+  orders    Int?
+}
+
+// --- Módulo de Hábitos ---
+model HabitGroup {
+  id     Int     @id @default(autoincrement())
+  name   String
+  habits Habit[]
+}
+
+model Habit {
+  id      Int          @id @default(autoincrement())
+  name    String
+  groupId Int
+  group   HabitGroup   @relation(fields: [groupId], references: [id])
+  logs    HabitLog[]
+}
+
+model HabitLog {
+  id      Int      @id @default(autoincrement())
+  habitId Int
+  habit   Habit    @relation(fields: [habitId], references: [id])
+  date    DateTime // Guardamos la fecha al inicio del dia
+  status  String   // REALIZADO, NO_REALIZADO, DESCANSO
+}
+
+// --- Módulo de Estudio ---
+model StudyTask {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  subject   String
+  completed Boolean  @default(false)
+}
+
+// --- Módulo de Agenda ---
+model AgendaEvent {
+  id        Int      @id @default(autoincrement())
+  dayNumber Int      // 1 al 21
+  startTime String   // "HH:MM"
+  endTime   String   // "HH:MM"
+  title     String
+  type      String   // obligacion, salud, estudio, rutina, ocio, auditoria
+}
+
+// --- Configuración General ---
+model Settings {
+  id             Int       @id @default(1)
+  savingGoal     Float?    // Meta de ahorro
+  cycleStartDate DateTime? // Fecha del "Día 1"
+}
