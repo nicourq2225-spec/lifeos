@@ -32,6 +32,7 @@ function DashboardContent() {
 
   const [loading, setLoading] = useState(true);
   const [isFinanzasModalOpen, setFinanzasModalOpen] = useState(false);
+  const [showRutina, setShowRutina] = useState(false);
   const [quote] = useState(() => quotes[Math.floor(Math.random() * quotes.length)]);
 
   useEffect(() => {
@@ -112,8 +113,6 @@ function DashboardContent() {
   const completedHabits = todaysHabitLogs?.filter((log: any) => log.status === 'REALIZADO').length || 0;
   const habitsPercentage = totalEvaluatedHabits > 0 ? Math.round((completedHabits / totalEvaluatedHabits) * 100) : 0;
   const savingsProgress = savingsGoal > 0 ? Math.min(100, Math.max(0, (savings / savingsGoal) * 100)) : 0;
-
-  const [showRutina, setShowRutina] = useState(false);
 
   return (
     <div className="space-y-6 pb-20 relative">
