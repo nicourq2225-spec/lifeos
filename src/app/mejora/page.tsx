@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { toast } from "sonner";
 import Modal from "@/components/Modal";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -12,7 +12,7 @@ type Question = {
   order: number;
 };
 
-export default function MejoraPage() {
+function MejoraContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const dateParam = searchParams.get("date");
@@ -239,3 +239,12 @@ export default function MejoraPage() {
     </div>
   );
 }
+
+export default function MejoraPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div></div>}>
+      <MejoraContent />
+    </Suspense>
+  );
+}
+
