@@ -16,8 +16,7 @@ const quotes = [
 
 function DashboardContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const dateParam = searchParams.get("date");
+  const dateParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("date") : null;
   
   const [data, setData] = useState<any>(null);
   

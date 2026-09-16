@@ -14,8 +14,7 @@ type Question = {
 
 function MejoraContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const dateParam = searchParams.get("date");
+  const dateParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("date") : null;
   
   const [dateStr, setDateStr] = useState(() => {
     return dateParam || new Date().toISOString().split('T')[0];
@@ -247,4 +246,7 @@ export default function MejoraPage() {
     </Suspense>
   );
 }
+
+
+export const dynamic = 'force-dynamic';
 
