@@ -12,18 +12,18 @@ model Transaction {
   id          Int      @id @default(autoincrement())
   amount      Float
   date        DateTime
-  type        String   // INGRESO, GASTO_NECESARIO, GASTO_INNECESARIO
+  type        String // INGRESO, GASTO_NECESARIO, GASTO_INNECESARIO
   categoryId  Int
   category    Category @relation(fields: [categoryId], references: [id])
   description String?
-  banco       String?  // Ej: MercadoPago, Efectivo, Banco Provincia
+  banco       String? // Ej: MercadoPago, Efectivo, Banco Provincia
 }
 
 model Category {
   id           Int           @id @default(autoincrement())
-  name         String        // Ej: Alquiler, Supermercado
-  parentName   String?       // Ej: Vivienda, Alimentacion
-  type         String        // INGRESO, GASTO_NECESARIO, GASTO_INNECESARIO
+  name         String // Ej: Alquiler, Supermercado
+  parentName   String? // Ej: Vivienda, Alimentacion
+  type         String // INGRESO, GASTO_NECESARIO, GASTO_INNECESARIO
   transactions Transaction[]
 }
 
@@ -45,10 +45,10 @@ model HabitGroup {
 }
 
 model Habit {
-  id      Int          @id @default(autoincrement())
+  id      Int        @id @default(autoincrement())
   name    String
   groupId Int
-  group   HabitGroup   @relation(fields: [groupId], references: [id])
+  group   HabitGroup @relation(fields: [groupId], references: [id])
   logs    HabitLog[]
 }
 
@@ -57,7 +57,7 @@ model HabitLog {
   habitId Int
   habit   Habit    @relation(fields: [habitId], references: [id])
   date    DateTime // Guardamos la fecha al inicio del dia
-  status  String   // REALIZADO, NO_REALIZADO, DESCANSO
+  status  String // REALIZADO, NO_REALIZADO, DESCANSO
 }
 
 // --- Módulo de Estudio ---
@@ -70,17 +70,42 @@ model StudyTask {
 
 // --- Módulo de Agenda ---
 model AgendaEvent {
-  id        Int      @id @default(autoincrement())
-  dayNumber Int      // 1 al 21
-  startTime String   // "HH:MM"
-  endTime   String   // "HH:MM"
+  id        Int    @id @default(autoincrement())
+  dayNumber Int // 1 al 21
+  startTime String // "HH:MM"
+  endTime   String // "HH:MM"
   title     String
-  type      String   // obligacion, salud, estudio, rutina, ocio, auditoria
+  type      String // obligacion, salud, estudio, rutina, ocio, auditoria
 }
 
 // --- Configuración General ---
 model Settings {
   id             Int       @id @default(1)
-  savingGoal     Float?    // Meta de ahorro
+  savingGoal     Float? // Meta de ahorro
   cycleStartDate DateTime? // Fecha del "Día 1"
+}
+
+// --- M�dulo de Mejora Continua (Diario/Auditor�a) ---
+model JournalQuestion {
+  id      Int             @id @default(autoincrement())
+  text    String
+  active  Boolean         @default(true)
+  order   Int             @default(0)
+  answers JournalAnswer[]
+}
+
+model JournalEntry {
+  id      Int             @id @default(autoincrement())
+  date    DateTime        @unique
+  note    String?
+  answers JournalAnswer[]
+}
+
+model JournalAnswer {
+  id         Int             @id @default(autoincrement())
+  entryId    Int
+  entry      JournalEntry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  questionId Int
+  question   JournalQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answerText String
 }

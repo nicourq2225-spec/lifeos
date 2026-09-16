@@ -12,6 +12,7 @@ export default function Navigation() {
     { href: "/habitos", label: "Hábitos", icon: "✅" },
     { href: "/estudio", label: "Estudio", icon: "📚" },
     { href: "/agenda", label: "Agenda", icon: "📅" },
+    { href: "/mejora", label: "Mejora", icon: "🌱" },
   ];
 
   return (

@@ -114,21 +114,49 @@ function DashboardContent() {
   const habitsPercentage = totalEvaluatedHabits > 0 ? Math.round((completedHabits / totalEvaluatedHabits) * 100) : 0;
   const savingsProgress = savingsGoal > 0 ? Math.min(100, Math.max(0, (savings / savingsGoal) * 100)) : 0;
 
+  const [showRutina, setShowRutina] = useState(false);
+
   return (
     <div className="space-y-6 pb-20 relative">
       
+      {/* MODAL RUTINA DIARIA */}
+      {showRutina && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+          <div className="overflow-y-auto flex-1">
+            <img src="/rutina-diaria.jpg" alt="Mi Rutina Diaria" className="w-full h-auto" />
+          </div>
+          <div className="flex justify-center py-4 bg-black border-t border-white/10 shrink-0">
+            <button
+              onClick={() => setShowRutina(false)}
+              className="bg-white text-black font-black px-8 py-3 rounded-2xl text-sm shadow-lg active:scale-95 transition-transform"
+            >
+              ✕ Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* HEADER VISUAL */}
       <div className="absolute top-0 left-0 w-full h-48 bg-gradient-to-b from-blue-900/40 via-black to-black -z-10 blur-xl"></div>
       
       <header className="pt-8 pb-4">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">Life OS</h1>
-          <input 
-            type="date" 
-            value={dateStr}
-            onChange={(e) => setDateStr(e.target.value)}
-            className="bg-card text-sm text-white font-bold border border-white/20 rounded-xl p-2 px-3 shadow-lg"
-          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowRutina(true)}
+              className="bg-card border border-white/20 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-lg active:scale-95 transition-transform"
+              title="Ver mi rutina diaria"
+            >
+              📋 Rutina
+            </button>
+            <input 
+              type="date" 
+              value={dateStr}
+              onChange={(e) => setDateStr(e.target.value)}
+              className="bg-card text-sm text-white font-bold border border-white/20 rounded-xl p-2 px-3 shadow-lg"
+            />
+          </div>
         </div>
         <p className="text-sm text-gray-400 italic border-l-2 border-blue-500 pl-3 py-1">"{quote}"</p>
       </header>
