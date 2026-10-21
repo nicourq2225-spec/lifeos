@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ensureHabitsForToday } from '@/lib/lazyInit';
+import { calculateCycleAndWeek, ensureAgendaDefaults } from '@/lib/agendaDefaults';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -13,10 +14,12 @@ export async function GET(request: Request) {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  // Lazy init habits
-  await ensureHabitsForToday(targetDateStr);
-
   try {
+    await Promise.all([
+      ensureHabitsForToday(targetDateStr),
+      ensureAgendaDefaults()
+    ]);
+
     // 1. Finanzas del día
     const todaysTransactions = await prisma.transaction.findMany({
       where: { date: { gte: today, lt: tomorrow } }
@@ -42,16 +45,24 @@ export async function GET(request: Request) {
     });
 
     // 4. Agenda
-    const dateToUseStr = settings?.cycleStartDate ? settings.cycleStartDate.toISOString().split('T')[0] : "2026-01-19";
-    const [sy, sm, sd] = dateToUseStr.split('-');
-    const start = new Date(parseInt(sy), parseInt(sm) - 1, parseInt(sd));
-    
-    const diffTime = today.getTime() - start.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    const dayNumber = diffDays >= 0 ? (diffDays % 21) + 1 : ((21 + (diffDays % 21)) % 21) + 1;
+    const cycleInfo = calculateCycleAndWeek(settings?.cycleStartDate, targetDateStr);
+    const dayNumber = cycleInfo.currentCycleDay;
 
-    const todaysEvents = await prisma.agendaEvent.findMany({
-      where: { dayNumber }
+    const [todaysEvents, allRules] = await Promise.all([
+      prisma.agendaEvent.findMany({
+        where: { dayNumber },
+        include: { punishment: true }
+      }),
+      prisma.dayRule.findMany({
+        where: { active: true },
+        orderBy: { id: 'asc' }
+      })
+    ]);
+
+    const todaysRules = allRules.filter(r => {
+      if (r.applyToAllDays) return true;
+      const days = (r.assignedDays || '').split(',').map(s => parseInt(s.trim(), 10));
+      return days.includes(dayNumber);
     });
 
     return NextResponse.json({
@@ -61,9 +72,12 @@ export async function GET(request: Request) {
       todaysHabitLogs,
       studyTask,
       dayNumber,
-      todaysEvents
+      cycleInfo,
+      todaysEvents,
+      todaysRules
     });
   } catch (error) {
+    console.error('Error fetching dashboard data:', error);
     return NextResponse.json({ error: 'Error fetching dashboard data' }, { status: 500 });
   }
 }

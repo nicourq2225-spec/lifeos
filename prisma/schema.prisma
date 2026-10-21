@@ -68,24 +68,84 @@ model StudyTask {
   completed Boolean  @default(false)
 }
 
-// --- Módulo de Agenda ---
+// --- Módulo de Agenda Cíclica (21 Días) ---
+model DayRule {
+  id             Int     @id @default(autoincrement())
+  name           String
+  description    String
+  reason         String
+  applyToAllDays Boolean @default(true)
+  assignedDays   String  @default("1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21") // Días del 1 al 21 separados por coma
+  active         Boolean @default(true)
+}
+
+model Punishment {
+  id         Int           @id @default(autoincrement())
+  name       String
+  unit       String?       @default("repeticiones") // Ej: "repeticiones", "vez", "km"
+  defaultQty Int           @default(1)
+  events     AgendaEvent[]
+}
+
 model AgendaEvent {
-  id        Int    @id @default(autoincrement())
-  dayNumber Int // 1 al 21
-  startTime String // "HH:MM"
-  endTime   String // "HH:MM"
-  title     String
-  type      String // obligacion, salud, estudio, rutina, ocio, auditoria
+  id            Int              @id @default(autoincrement())
+  dayNumber     Int              // 1 al 21
+  startTime     String           // "HH:MM"
+  endTime       String           // "HH:MM"
+  title         String
+  type          String           // obligacion, salud, estudio, rutina, ocio, auditoria
+  instructions  String?          // JSON array de strings paso a paso: '["Paso 1", "Paso 2"]'
+  rewardPoints  Int              @default(0)
+  punishmentId  Int?
+  punishment    Punishment?      @relation(fields: [punishmentId], references: [id], onDelete: SetNull)
+  punishmentQty Int?             @default(1)
+  logs          AgendaEventLog[]
+}
+
+model AgendaEventLog {
+  id                Int         @id @default(autoincrement())
+  eventId           Int
+  event             AgendaEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  dateStr           String      // "YYYY-MM-DD"
+  weekStartStr      String      // "YYYY-MM-DD" del Lunes de la semana correspondiente
+  cycleDay          Int         // 1 al 21
+  status            String      // "COMPLETADO" | "PROCRASTINADO"
+  pointsAwarded     Int         @default(0)
+  punishmentName    String?
+  punishmentUnit    String?
+  punishmentQty     Int?
+  punishmentSettled Boolean     @default(false)
+  createdAt         DateTime    @default(now())
+}
+
+model RewardItem {
+  id          Int                @id @default(autoincrement())
+  name        String
+  description String?
+  costPoints  Int                @default(10)
+  redemptions RewardRedemption[]
+}
+
+model RewardRedemption {
+  id           Int         @id @default(autoincrement())
+  rewardItemId Int?
+  rewardItem   RewardItem? @relation(fields: [rewardItemId], references: [id], onDelete: SetNull)
+  rewardName   String
+  costPoints   Int
+  dateStr      String      // "YYYY-MM-DD"
+  weekStartStr String      // "YYYY-MM-DD" del Lunes de la semana correspondiente
+  createdAt    DateTime    @default(now())
 }
 
 // --- Configuración General ---
 model Settings {
-  id             Int       @id @default(1)
-  savingGoal     Float? // Meta de ahorro
-  cycleStartDate DateTime? // Fecha del "Día 1"
+  id                  Int       @id @default(1)
+  savingGoal          Float?    // Meta de ahorro
+  cycleStartDate      DateTime? // Fecha del "Día 1"
+  lastPointsResetDate String?   // "YYYY-MM-DD" del último lunes procesado para reinicio semanal
 }
 
-// --- M�dulo de Mejora Continua (Diario/Auditor�a) ---
+// --- Módulo de Mejora Continua (Diario/Auditoría) ---
 model JournalQuestion {
   id      Int             @id @default(autoincrement())
   text    String

@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import Modal from "@/components/Modal";
 import TransactionForm from "@/components/TransactionForm";
 
@@ -107,7 +108,7 @@ function DashboardContent() {
     </div>
   );
 
-  const { todaysExpenses, savings, savingsGoal, todaysHabitLogs, studyTask, dayNumber, todaysEvents } = data || {};
+  const { todaysExpenses, savings, savingsGoal, todaysHabitLogs, studyTask, dayNumber, todaysEvents, todaysRules, cycleInfo } = data || {};
 
   const totalEvaluatedHabits = todaysHabitLogs?.filter((log: any) => log.status !== 'DESCANSO').length || 0;
   const completedHabits = todaysHabitLogs?.filter((log: any) => log.status === 'REALIZADO').length || 0;
@@ -249,12 +250,44 @@ function DashboardContent() {
           )}
         </section>
 
+        {/* REGLAS DEL DÍA */}
+        {todaysRules && todaysRules.length > 0 && (
+          <section className="bg-gradient-to-br from-blue-950/30 via-card to-black rounded-3xl p-5 border border-blue-500/20 shadow-lg">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-lg font-bold flex items-center gap-2 text-blue-300">📜 Reglas del Día</h2>
+              <Link href="/agenda" className="text-[11px] bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 px-3 py-1 rounded-full font-bold transition-colors">
+                Gestionar
+              </Link>
+            </div>
+            <div className="space-y-2">
+              {todaysRules.map((rule: any) => (
+                <div key={rule.id} className="bg-black/40 p-3 rounded-2xl border border-white/5">
+                  <p className="text-xs font-black text-white uppercase tracking-wide">⚡ {rule.name}</p>
+                  <p className="text-xs text-gray-300 mt-1">{rule.description}</p>
+                  {rule.reason && (
+                    <p className="text-[11px] text-gray-400 italic mt-1 border-l-2 border-blue-500/40 pl-2">
+                      Razón: {rule.reason}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* AGENDA */}
         <section className="bg-card rounded-3xl p-5 border border-white/10 shadow-lg relative overflow-hidden">
           <div className="absolute right-0 bottom-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl"></div>
           <div className="flex justify-between items-center mb-4 relative z-10">
             <h2 className="text-xl font-bold flex items-center gap-2">📅 Agenda</h2>
-            <span className="text-xs bg-black px-3 py-1 rounded-full border border-white/5 font-bold text-gray-300">Día {dayNumber}/21</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs bg-black px-3 py-1 rounded-full border border-white/5 font-bold text-gray-300">
+                Día {dayNumber}/21 {cycleInfo?.weekInCycle ? `· Sem ${cycleInfo.weekInCycle}` : ""}
+              </span>
+              <Link href="/agenda" className="text-xs bg-white/10 hover:bg-white/20 transition-colors px-3 py-1 rounded-full font-semibold">
+                Abrir
+              </Link>
+            </div>
           </div>
           {todaysEvents?.length > 0 ? (
             <div className="space-y-3 relative z-10">
@@ -263,9 +296,19 @@ function DashboardContent() {
                   <div className="bg-card px-2 py-1 rounded-lg text-center border border-white/5 shadow-inner">
                     <p className="text-xs font-bold text-white">{event.startTime}</p>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-bold text-sm leading-tight">{event.title}</p>
-                    <p className="text-[10px] text-gray-500 uppercase font-semibold mt-0.5">{event.type}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm leading-tight truncate">{event.title}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <span className="text-[10px] text-gray-500 uppercase font-semibold">{event.type}</span>
+                      {event.rewardPoints > 0 && (
+                        <span className="text-[10px] font-bold text-amber-400">+{event.rewardPoints} pts</span>
+                      )}
+                      {event.punishment && (
+                        <span className="text-[10px] font-bold text-red-400">
+                          ⚠️ {event.punishment.name} ({event.punishmentQty || event.punishment.defaultQty})
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
