@@ -17,14 +17,26 @@ function isSessionValid(): boolean {
   }
 }
 
+function getArgentinaTodayStr(): string {
+  return new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+  });
+}
+
 function saveSession() {
   if (typeof window === "undefined") return;
+  const todayStr = getArgentinaTodayStr();
   localStorage.setItem(PIN_KEY, JSON.stringify({ ts: Date.now() }));
+  localStorage.setItem("lifeOs_dashboard_date", todayStr);
+  if (window.location.pathname === "/") {
+    window.history.replaceState({}, "", `/?date=${todayStr}`);
+  }
 }
 
 export function logout() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(PIN_KEY);
+  localStorage.removeItem("lifeOs_dashboard_date");
   window.location.href = "/";
 }
 

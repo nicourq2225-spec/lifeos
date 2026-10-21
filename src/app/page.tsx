@@ -21,14 +21,16 @@ function DashboardContent() {
   
   const [data, setData] = useState<any>(null);
   
-  // Usar dateParam, o localStorage, o la fecha actual
+  // Usar dateParam, o localStorage, o la fecha actual en Argentina
   const [dateStr, setDateStr] = useState(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("lifeOs_dashboard_date");
       if (dateParam) return dateParam;
       if (stored) return stored;
     }
-    return new Date().toLocaleDateString('en-CA');
+    return new Date().toLocaleDateString("en-CA", {
+      timeZone: "America/Argentina/Buenos_Aires",
+    });
   });
 
   const [loading, setLoading] = useState(true);
