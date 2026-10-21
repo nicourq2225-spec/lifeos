@@ -34,6 +34,7 @@ export async function GET(request: Request) {
       rules,
       punishments,
       rewards,
+      templates,
       weekLogs,
       pendingPunishments,
       weekRedemptions,
@@ -50,6 +51,10 @@ export async function GET(request: Request) {
       }),
       prisma.rewardItem.findMany({
         orderBy: { costPoints: "asc" },
+      }),
+      prisma.agendaTemplate.findMany({
+        include: { punishment: true },
+        orderBy: { id: "asc" },
       }),
       prisma.agendaEventLog.findMany({
         where: { weekStartStr: cycleInfo.weekStartStr },
@@ -89,7 +94,7 @@ export async function GET(request: Request) {
       rules,
       punishments,
       rewards,
-      templates: AGENDA_TEMPLATES,
+      templates,
       weekLogs,
       pendingPunishments,
       weekRedemptions,

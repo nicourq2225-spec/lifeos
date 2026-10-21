@@ -80,11 +80,23 @@ model DayRule {
 }
 
 model Punishment {
-  id         Int           @id @default(autoincrement())
+  id         Int              @id @default(autoincrement())
   name       String
-  unit       String?       @default("repeticiones") // Ej: "repeticiones", "vez", "km"
-  defaultQty Int           @default(1)
+  unit       String?          @default("repeticiones") // Ej: "repeticiones", "vez", "km"
+  defaultQty Int              @default(1)
   events     AgendaEvent[]
+  templates  AgendaTemplate[]
+}
+
+model AgendaTemplate {
+  id            Int         @id @default(autoincrement())
+  title         String
+  type          String      @default("obligacion") // obligacion, salud, estudio, rutina, ocio, auditoria
+  instructions  String?     // JSON array de strings paso a paso: '["Paso 1", "Paso 2"]'
+  rewardPoints  Int         @default(0)
+  punishmentId  Int?
+  punishment    Punishment? @relation(fields: [punishmentId], references: [id], onDelete: SetNull)
+  punishmentQty Int?        @default(1)
 }
 
 model AgendaEvent {

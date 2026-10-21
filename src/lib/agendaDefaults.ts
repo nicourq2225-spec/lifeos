@@ -278,10 +278,11 @@ export function calculateCycleAndWeek(
  * si las tablas están vacías, para que la app tenga todo listo de inmediato.
  */
 export async function ensureAgendaDefaults() {
-  const [rulesCount, punishmentsCount, rewardsCount] = await Promise.all([
+  const [rulesCount, punishmentsCount, rewardsCount, templatesCount] = await Promise.all([
     prisma.dayRule.count(),
     prisma.punishment.count(),
     prisma.rewardItem.count(),
+    prisma.agendaTemplate.count(),
   ]);
 
   if (rulesCount === 0) {
@@ -300,5 +301,27 @@ export async function ensureAgendaDefaults() {
     await prisma.rewardItem.createMany({
       data: INITIAL_REWARDS,
     });
+  }
+
+  if (templatesCount === 0) {
+    const allPunishments = await prisma.punishment.findMany();
+    for (const tpl of AGENDA_TEMPLATES) {
+      const matchedPunishment = tpl.defaultPunishmentName
+        ? allPunishments.find(
+            (p) => p.name.toLowerCase() === tpl.defaultPunishmentName!.toLowerCase()
+          )
+        : null;
+
+      await prisma.agendaTemplate.create({
+        data: {
+          title: tpl.title,
+          type: tpl.type,
+          instructions: JSON.stringify(tpl.instructions),
+          rewardPoints: tpl.defaultRewardPoints,
+          punishmentId: matchedPunishment ? matchedPunishment.id : null,
+          punishmentQty: matchedPunishment ? tpl.defaultPunishmentQty : null,
+        },
+      });
+    }
   }
 }

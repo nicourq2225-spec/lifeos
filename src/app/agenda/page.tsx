@@ -67,13 +67,14 @@ type AgendaEventLog = {
 };
 
 type AgendaBlockTemplate = {
-  key: string;
+  id: number;
   title: string;
   type: string;
-  instructions: string[];
-  defaultRewardPoints: number;
-  defaultPunishmentName: string | null;
-  defaultPunishmentQty: number;
+  instructions: string | null;
+  rewardPoints: number;
+  punishmentId: number | null;
+  punishment: Punishment | null;
+  punishmentQty: number | null;
 };
 
 type PointsSummary = {
@@ -151,6 +152,20 @@ export default function AgendaPage() {
   const [instructionsList, setInstructionsList] = useState<string[]>([]);
   const [newInstructionStep, setNewInstructionStep] = useState("");
   const [isSavingEvent, setIsSavingEvent] = useState(false);
+
+  // Modal de Plantillas de Eventos (CRUD)
+  const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
+  const [templateToEdit, setTemplateToEdit] = useState<AgendaBlockTemplate | undefined>(
+    undefined
+  );
+  const [tplTitle, setTplTitle] = useState("");
+  const [tplType, setTplType] = useState("obligacion");
+  const [tplRewardPoints, setTplRewardPoints] = useState("0");
+  const [tplPunishmentId, setTplPunishmentId] = useState<string>("none");
+  const [tplPunishmentQty, setTplPunishmentQty] = useState("1");
+  const [tplInstructionsList, setTplInstructionsList] = useState<string[]>([]);
+  const [newTplInstructionStep, setNewTplInstructionStep] = useState("");
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
   // Modal de Reglas del Día (CRUD)
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
@@ -247,32 +262,128 @@ export default function AgendaPage() {
   };
 
   // --- PLANTILLAS EN FORMULARIO DE EVENTO ---
-  const handleApplyTemplate = (templateKey: string) => {
-    setSelectedTemplateKey(templateKey);
-    const tpl = templates.find((t) => t.key === templateKey);
+  const handleApplyTemplate = (templateIdStr: string) => {
+    setSelectedTemplateKey(templateIdStr);
+    const tpl = templates.find((t) => String(t.id) === templateIdStr);
     if (!tpl) return;
 
     setTitle(tpl.title);
     setType(tpl.type);
-    setInstructionsList([...tpl.instructions]);
-    setRewardPoints(String(tpl.defaultRewardPoints));
+    setInstructionsList(parseInstructions(tpl.instructions));
+    setRewardPoints(String(tpl.rewardPoints || 0));
 
-    if (tpl.defaultPunishmentName) {
-      const foundPunishment = punishments.find(
-        (p) => p.name.toLowerCase() === tpl.defaultPunishmentName!.toLowerCase()
-      );
-      if (foundPunishment) {
-        setPunishmentId(String(foundPunishment.id));
-        setPunishmentQty(String(tpl.defaultPunishmentQty));
-      } else {
-        setPunishmentId("none");
-        setPunishmentQty("1");
-      }
+    if (tpl.punishmentId) {
+      setPunishmentId(String(tpl.punishmentId));
+      setPunishmentQty(String(tpl.punishmentQty || tpl.punishment?.defaultQty || 1));
     } else {
       setPunishmentId("none");
       setPunishmentQty("1");
     }
     toast.success(`Plantilla "${tpl.title}" cargada`);
+  };
+
+  // --- CRUD DE PLANTILLAS DE EVENTOS ---
+  const openNewTemplateForm = () => {
+    setTemplateToEdit(undefined);
+    setTplTitle("");
+    setTplType("obligacion");
+    setTplRewardPoints("0");
+    setTplPunishmentId("none");
+    setTplPunishmentQty("1");
+    setTplInstructionsList([]);
+    setNewTplInstructionStep("");
+  };
+
+  const openEditTemplateForm = (tpl: AgendaBlockTemplate) => {
+    setTemplateToEdit(tpl);
+    setTplTitle(tpl.title);
+    setTplType(tpl.type || "obligacion");
+    setTplRewardPoints(String(tpl.rewardPoints || 0));
+    setTplPunishmentId(tpl.punishmentId ? String(tpl.punishmentId) : "none");
+    setTplPunishmentQty(String(tpl.punishmentQty || tpl.punishment?.defaultQty || 1));
+    setTplInstructionsList(parseInstructions(tpl.instructions));
+    setNewTplInstructionStep("");
+  };
+
+  const handleAddTplInstructionStep = () => {
+    if (!newTplInstructionStep.trim()) return;
+    setTplInstructionsList((prev) => [...prev, newTplInstructionStep.trim()]);
+    setNewTplInstructionStep("");
+  };
+
+  const handleUpdateTplInstructionStep = (index: number, value: string) => {
+    setTplInstructionsList((prev) => prev.map((s, i) => (i === index ? value : s)));
+  };
+
+  const handleRemoveTplInstructionStep = (index: number) => {
+    setTplInstructionsList((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleMoveTplInstructionStep = (index: number, direction: "up" | "down") => {
+    setTplInstructionsList((prev) => {
+      const next = [...prev];
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= next.length) return prev;
+      const temp = next[index];
+      next[index] = next[targetIndex];
+      next[targetIndex] = temp;
+      return next;
+    });
+  };
+
+  const handleSaveTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tplTitle.trim()) return;
+
+    const finalInstructions = [...tplInstructionsList];
+    if (newTplInstructionStep.trim()) {
+      finalInstructions.push(newTplInstructionStep.trim());
+    }
+
+    setIsSavingTemplate(true);
+    try {
+      const res = await fetch("/api/agenda/templates", {
+        method: templateToEdit ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: templateToEdit?.id,
+          title: tplTitle.trim(),
+          type: tplType,
+          instructions: finalInstructions,
+          rewardPoints: parseInt(tplRewardPoints || "0", 10) || 0,
+          punishmentId: tplPunishmentId === "none" ? null : parseInt(tplPunishmentId, 10),
+          punishmentQty:
+            tplPunishmentId === "none"
+              ? null
+              : parseInt(tplPunishmentQty || "1", 10) || 1,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(
+        templateToEdit ? "Plantilla actualizada" : "Nueva plantilla guardada"
+      );
+      openNewTemplateForm();
+      fetchData(true);
+    } catch {
+      toast.error("Error al guardar la plantilla");
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (id: number) => {
+    if (!confirm("¿Eliminar esta plantilla del catálogo?")) return;
+    try {
+      const res = await fetch(`/api/agenda/templates?id=${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Plantilla eliminada");
+      if (templateToEdit?.id === id) openNewTemplateForm();
+      fetchData(true);
+    } catch {
+      toast.error("Error al eliminar la plantilla");
+    }
   };
 
   // --- CRUD EVENTOS ---
@@ -740,7 +851,17 @@ export default function AgendaPage() {
         </div>
 
         {/* BOTONERA DE CATÁLOGOS CRUD */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
+          <button
+            onClick={() => {
+              openNewTemplateForm();
+              setIsTemplatesModalOpen(true);
+            }}
+            className="bg-card border border-white/10 hover:border-purple-500/40 rounded-xl p-2.5 text-xs font-bold flex flex-col items-center gap-1 active:scale-95 transition-all"
+          >
+            <span className="text-base">📋</span>
+            <span>Plantillas ({templates.length})</span>
+          </button>
           <button
             onClick={() => {
               openNewRuleForm();
@@ -1207,11 +1328,24 @@ export default function AgendaPage() {
         title={eventToEdit ? "Editar Bloque de Agenda" : "Nuevo Bloque de Agenda"}
       >
         <form onSubmit={handleSubmitEvent} className="space-y-4">
-          {/* Selector de los 9 Bloques / Plantillas Predefinidas */}
-          <div className="bg-cyan-950/30 border border-cyan-500/30 p-3 rounded-xl">
-            <label className="text-xs font-bold text-cyan-300 block mb-1">
-              ⚡ Cargar Plantilla Predefinida (Opcional)
-            </label>
+          {/* Selector de Plantillas Predefinidas */}
+          <div className="bg-cyan-950/30 border border-cyan-500/30 p-3 rounded-xl space-y-2">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-bold text-cyan-300">
+                ⚡ Cargar Plantilla Predefinida (Opcional)
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEventModalOpen(false);
+                  openNewTemplateForm();
+                  setIsTemplatesModalOpen(true);
+                }}
+                className="text-[11px] bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 font-bold px-2.5 py-1 rounded-lg transition-colors"
+              >
+                ⚙️ Gestionar Plantillas
+              </button>
+            </div>
             <select
               value={selectedTemplateKey}
               onChange={(e) => handleApplyTemplate(e.target.value)}
@@ -1219,8 +1353,8 @@ export default function AgendaPage() {
             >
               <option value="">-- Seleccionar plantilla para autocompletar --</option>
               {templates.map((tpl) => (
-                <option key={tpl.key} value={tpl.key}>
-                  {tpl.title} ({tpl.instructions.length} pasos)
+                <option key={tpl.id} value={String(tpl.id)}>
+                  {tpl.title} ({parseInstructions(tpl.instructions).length} pasos)
                 </option>
               ))}
             </select>
@@ -1912,6 +2046,285 @@ export default function AgendaPage() {
           >
             Guardar Configuración
           </button>
+        </div>
+      </Modal>
+
+      {/* ===================================================================== */}
+      {/* MODAL 6: CATÁLOGO CRUD DE PLANTILLAS DE EVENTOS                       */}
+      {/* ===================================================================== */}
+      <Modal
+        isOpen={isTemplatesModalOpen}
+        onClose={() => setIsTemplatesModalOpen(false)}
+        title="📋 Catálogo de Plantillas de Eventos"
+      >
+        <div className="space-y-5">
+          {/* Formulario Crear / Editar Plantilla */}
+          <form
+            onSubmit={handleSaveTemplate}
+            className="bg-black/60 border border-white/10 rounded-2xl p-4 space-y-3"
+          >
+            <div className="flex justify-between items-center">
+              <h3 className="text-xs font-black uppercase tracking-wider text-purple-300">
+                {templateToEdit
+                  ? `Editando Plantilla: ${templateToEdit.title}`
+                  : "+ Crear Nueva Plantilla de Bloque"}
+              </h3>
+              {templateToEdit && (
+                <button
+                  type="button"
+                  onClick={openNewTemplateForm}
+                  className="text-[11px] text-gray-400 hover:text-white underline"
+                >
+                  Cancelar edición
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2">
+                <label className="text-xs text-gray-400">Nombre de la Plantilla</label>
+                <input
+                  type="text"
+                  value={tplTitle}
+                  onChange={(e) => setTplTitle(e.target.value)}
+                  required
+                  placeholder="Ej. Gimnasio, Estudio, 24hs Security..."
+                  className="w-full bg-black border border-white/20 rounded-lg p-2 mt-1 text-xs"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400">Categoría</label>
+                <select
+                  value={tplType}
+                  onChange={(e) => setTplType(e.target.value)}
+                  className="w-full bg-black border border-white/20 rounded-lg p-2 mt-1 text-xs capitalize"
+                >
+                  {Object.keys(typeColors).map((k) => (
+                    <option key={k} value={k}>
+                      {k}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Puntos y Castigo por defecto de la plantilla */}
+            <div className="bg-black/50 border border-white/10 rounded-xl p-3 space-y-2.5">
+              <div>
+                <label className="text-[11px] font-bold text-yellow-400 block">
+                  🏆 Puntos de Recompensa por defecto (0 = Sin Recompensa)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={tplRewardPoints}
+                  onChange={(e) => setTplRewardPoints(e.target.value)}
+                  className="w-full bg-black border border-white/20 rounded-lg p-1.5 mt-1 text-xs font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] font-bold text-red-400 block">
+                    💀 Castigo por defecto
+                  </label>
+                  <select
+                    value={tplPunishmentId}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setTplPunishmentId(val);
+                      if (val !== "none") {
+                        const found = punishments.find((p) => String(p.id) === val);
+                        if (found) setTplPunishmentQty(String(found.defaultQty));
+                      }
+                    }}
+                    className="w-full bg-black border border-white/20 rounded-lg p-1.5 mt-1 text-xs"
+                  >
+                    <option value="none">Ninguno (Sin Castigo)</option>
+                    {punishments.map((p) => (
+                      <option key={p.id} value={String(p.id)}>
+                        {p.name} ({p.unit || "u."})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {tplPunishmentId !== "none" && (
+                  <div>
+                    <label className="text-[11px] font-bold text-red-400 block">
+                      Cantidad ({punishments.find((p) => String(p.id) === tplPunishmentId)?.unit || "unidades"})
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={tplPunishmentQty}
+                      onChange={(e) => setTplPunishmentQty(e.target.value)}
+                      className="w-full bg-black border border-white/20 rounded-lg p-1.5 mt-1 text-xs font-bold"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Editor de Instrucciones paso a paso de la plantilla */}
+            <div className="bg-black/50 border border-white/10 rounded-xl p-3 space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-[11px] font-bold text-cyan-300">
+                  📋 Instrucciones paso a paso ({tplInstructionsList.length})
+                </label>
+                {tplInstructionsList.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setTplInstructionsList([])}
+                    className="text-[10px] text-gray-400 hover:text-red-400"
+                  >
+                    Limpiar pasos
+                  </button>
+                )}
+              </div>
+
+              {tplInstructionsList.length > 0 && (
+                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                  {tplInstructionsList.map((step, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-mono text-gray-400 w-5 shrink-0">
+                        {idx + 1}.
+                      </span>
+                      <input
+                        type="text"
+                        value={step}
+                        onChange={(e) =>
+                          handleUpdateTplInstructionStep(idx, e.target.value)
+                        }
+                        className="flex-1 bg-black border border-white/15 rounded-lg px-2 py-1 text-xs text-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleMoveTplInstructionStep(idx, "up")}
+                        disabled={idx === 0}
+                        className="px-1.5 py-1 text-[10px] bg-white/10 rounded disabled:opacity-30"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveTplInstructionStep(idx, "down")}
+                        disabled={idx === tplInstructionsList.length - 1}
+                        className="px-1.5 py-1 text-[10px] bg-white/10 rounded disabled:opacity-30"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTplInstructionStep(idx)}
+                        className="px-1.5 py-1 text-[10px] bg-red-500/20 text-red-400 rounded"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newTplInstructionStep}
+                  onChange={(e) => setNewTplInstructionStep(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddTplInstructionStep();
+                    }
+                  }}
+                  placeholder="Agregar paso a la plantilla..."
+                  className="flex-1 bg-black border border-white/20 rounded-lg p-2 text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddTplInstructionStep}
+                  className="bg-cyan-500 text-black font-black px-3 rounded-lg text-xs shrink-0"
+                >
+                  + Paso
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSavingTemplate}
+              className="w-full bg-white text-black font-black rounded-xl p-2.5 text-xs"
+            >
+              {isSavingTemplate
+                ? "Guardando..."
+                : templateToEdit
+                  ? "Actualizar Plantilla"
+                  : "Guardar Nueva Plantilla"}
+            </button>
+          </form>
+
+          {/* Lista de Plantillas Existentes */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold uppercase text-gray-400">
+              Plantillas Guardadas ({templates.length})
+            </h4>
+            {templates.map((tpl) => {
+              const steps = parseInstructions(tpl.instructions);
+              return (
+                <div
+                  key={tpl.id}
+                  className="bg-black/40 border border-white/10 rounded-xl p-3 space-y-2"
+                >
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <p className="font-black text-sm text-white">{tpl.title}</p>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        <span className="text-[10px] uppercase font-bold bg-white/10 text-gray-300 px-2 py-0.5 rounded">
+                          {tpl.type}
+                        </span>
+                        <span className="text-[10px] font-bold bg-yellow-500/15 text-yellow-300 px-2 py-0.5 rounded">
+                          🏆 +{tpl.rewardPoints || 0} pts
+                        </span>
+                        <span className="text-[10px] font-bold bg-red-500/15 text-red-300 px-2 py-0.5 rounded">
+                          💀{" "}
+                          {tpl.punishment
+                            ? `${tpl.punishment.name} (${tpl.punishmentQty || tpl.punishment.defaultQty} ${tpl.punishment.unit || ""})`
+                            : "Sin Castigo"}
+                        </span>
+                        <span className="text-[10px] font-bold bg-cyan-500/15 text-cyan-300 px-2 py-0.5 rounded">
+                          📋 {steps.length} pasos
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-1.5 shrink-0">
+                      <button
+                        onClick={() => openEditTemplateForm(tpl)}
+                        className="text-[11px] bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-lg font-bold"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTemplate(tpl.id)}
+                        className="text-[11px] bg-red-500/20 text-red-400 px-2.5 py-1 rounded-lg font-bold"
+                      >
+                        Borrar
+                      </button>
+                    </div>
+                  </div>
+
+                  {steps.length > 0 && (
+                    <ol className="text-[11px] text-gray-400 list-decimal list-inside space-y-0.5 bg-black/40 p-2 rounded-lg border border-white/5">
+                      {steps.map((s, idx) => (
+                        <li key={idx} className="truncate">
+                          {s}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </Modal>
     </div>
