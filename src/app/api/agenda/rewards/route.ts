@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       }
 
       const settings = await prisma.settings.findFirst();
-      const cycleInfo = calculateCycleAndWeek(settings?.cycleStartDate);
+      const cycleInfo = calculateCycleAndWeek(settings?.cycleStartDate, body.dateStr);
 
       const [weekLogs, weekRedemptions] = await Promise.all([
         prisma.agendaEventLog.findMany({

@@ -182,10 +182,16 @@ export default function AgendaPage() {
   const [rewardCost, setRewardCost] = useState("30");
   const [isSavingReward, setIsSavingReward] = useState(false);
 
+  const getLocalTodayStr = () =>
+    new Date().toLocaleDateString("en-CA", {
+      timeZone: "America/Argentina/Buenos_Aires",
+    });
+
   const fetchData = async (preserveSelectedDay = false) => {
     try {
       setLoading(true);
-      const res = await fetch("/api/agenda");
+      const localDate = getLocalTodayStr();
+      const res = await fetch(`/api/agenda?date=${localDate}`);
       if (!res.ok) throw new Error("Error cargando agenda");
       const data = await res.json();
 
@@ -659,6 +665,7 @@ export default function AgendaPage() {
         body: JSON.stringify({
           action: "REDEEM",
           rewardItemId: reward.id,
+          dateStr: todayStr || getLocalTodayStr(),
         }),
       });
       const data = await res.json();

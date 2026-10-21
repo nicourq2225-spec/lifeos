@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ensureHabitsForToday } from '@/lib/lazyInit';
-import { calculateCycleAndWeek, ensureAgendaDefaults } from '@/lib/agendaDefaults';
+import { calculateCycleAndWeek, ensureAgendaDefaults, getArgentinaDateStr } from '@/lib/agendaDefaults';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const dateStr = searchParams.get('date'); // YYYY-MM-DD
   
-  const targetDateStr = dateStr || new Date().toLocaleDateString('en-CA');
+  const targetDateStr = dateStr || getArgentinaDateStr();
   const [y, m, d] = targetDateStr.split('-');
   const today = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
   

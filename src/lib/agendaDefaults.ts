@@ -215,6 +215,12 @@ export const AGENDA_TEMPLATES: AgendaBlockTemplate[] = [
  *   para que los puntos sólo tengan vigencia dentro de la semana actual (Lunes a Domingo)
  *   y se reinicien automáticamente a 0 al llegar al próximo lunes (días 1, 8 o 15).
  */
+export function getArgentinaDateStr(date: Date = new Date()): string {
+  return date.toLocaleDateString("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+  });
+}
+
 export function calculateCycleAndWeek(
   cycleStartDate?: Date | string | null,
   targetDateStr?: string | null
@@ -226,22 +232,17 @@ export function calculateCycleAndWeek(
     : "2026-01-19";
 
   const [sy, sm, sd] = dateToUseStr.split("-").map(Number);
-  const start = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+  const startUtcMs = Date.UTC(sy, sm - 1, sd);
 
-  let today: Date;
-  if (targetDateStr) {
-    const [ty, tm, td] = targetDateStr.split("-").map(Number);
-    today = new Date(ty, tm - 1, td, 0, 0, 0, 0);
-  } else {
-    const nowStr = new Date().toLocaleDateString("en-CA");
-    const [ty, tm, td] = nowStr.split("-").map(Number);
-    today = new Date(ty, tm - 1, td, 0, 0, 0, 0);
-  }
+  const todayStr =
+    targetDateStr && /^\d{4}-\d{2}-\d{2}$/.test(targetDateStr)
+      ? targetDateStr
+      : getArgentinaDateStr();
 
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const [ty, tm, td] = todayStr.split("-").map(Number);
+  const todayUtcMs = Date.UTC(ty, tm - 1, td);
 
-  const diffTime = today.getTime() - start.getTime();
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const diffDays = Math.round((todayUtcMs - startUtcMs) / (1000 * 60 * 60 * 24));
 
   const currentCycleDay =
     diffDays >= 0 ? (diffDays % 21) + 1 : ((21 + (diffDays % 21)) % 21) + 1;
@@ -251,13 +252,11 @@ export function calculateCycleAndWeek(
   // Día dentro de la semana actual (0 = Lunes [Días 1, 8, 15] ... 6 = Domingo [Días 7, 14, 21])
   const offsetFromWeekMonday = (currentCycleDay - 1) % 7;
 
-  const weekMonday = new Date(today);
-  weekMonday.setDate(today.getDate() - offsetFromWeekMonday);
-  const weekStartStr = `${weekMonday.getFullYear()}-${String(weekMonday.getMonth() + 1).padStart(2, "0")}-${String(weekMonday.getDate()).padStart(2, "0")}`;
+  const weekMonday = new Date(todayUtcMs - offsetFromWeekMonday * 86400000);
+  const weekStartStr = weekMonday.toISOString().split("T")[0];
 
-  const weekSunday = new Date(weekMonday);
-  weekSunday.setDate(weekMonday.getDate() + 6);
-  const weekEndStr = `${weekSunday.getFullYear()}-${String(weekSunday.getMonth() + 1).padStart(2, "0")}-${String(weekSunday.getDate()).padStart(2, "0")}`;
+  const weekSunday = new Date(weekMonday.getTime() + 6 * 86400000);
+  const weekEndStr = weekSunday.toISOString().split("T")[0];
 
   const weekStartCycleDay = (currentCycleWeek - 1) * 7 + 1; // 1, 8 o 15
   const weekEndCycleDay = currentCycleWeek * 7; // 7, 14 o 21

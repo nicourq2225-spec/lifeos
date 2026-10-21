@@ -2,7 +2,11 @@ import { prisma } from "./prisma";
 
 export async function ensureHabitsForToday(dateStr?: string) {
   // dateStr expected in "YYYY-MM-DD"
-  const targetDateStr = dateStr || new Date().toLocaleDateString('en-CA'); // 'en-CA' outputs YYYY-MM-DD locally
+  const targetDateStr =
+    dateStr ||
+    new Date().toLocaleDateString("en-CA", {
+      timeZone: "America/Argentina/Buenos_Aires",
+    });
   const [y, m, d] = targetDateStr.split('-');
   
   // Usar las 12:00 (mediodía) para evitar que conversiones UTC desplacen la fecha 
