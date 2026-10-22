@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ensureHabitsForToday } from '@/lib/lazyInit';
 import { calculateCycleAndWeek, ensureAgendaDefaults, getArgentinaDateStr } from '@/lib/agendaDefaults';
+import { ensureStudyPlanSeeded } from '@/lib/studyPlanData';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -17,7 +18,8 @@ export async function GET(request: Request) {
   try {
     await Promise.all([
       ensureHabitsForToday(targetDateStr),
-      ensureAgendaDefaults()
+      ensureAgendaDefaults(),
+      ensureStudyPlanSeeded(false)
     ]);
 
     // 1. Finanzas del día
@@ -41,7 +43,12 @@ export async function GET(request: Request) {
 
     // 3. Estudio
     const studyTask = await prisma.studyTask.findFirst({
-      where: { date: { gte: today, lt: tomorrow } }
+      where: {
+        OR: [
+          { dateStr: targetDateStr },
+          { date: { gte: today, lt: tomorrow } }
+        ]
+      }
     });
 
     // 4. Agenda

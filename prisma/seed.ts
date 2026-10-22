@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { INITIAL_DAY_RULES, INITIAL_PUNISHMENTS, INITIAL_REWARDS } from '../src/lib/agendaDefaults';
+import { ensureStudyPlanSeeded } from '../src/lib/studyPlanData';
 
 const prisma = new PrismaClient();
 
@@ -113,6 +114,10 @@ async function main() {
     console.log('Iniciando seeding de Premios Canjeables...');
     await prisma.rewardItem.createMany({ data: INITIAL_REWARDS });
   }
+
+  // Plan de Estudio (39 jornadas y curso Udemy Full Stack JS)
+  console.log('Iniciando seeding del Plan de Estudio (39 jornadas)...');
+  await ensureStudyPlanSeeded(false);
 
   console.log('Seeding completado con éxito!');
 }

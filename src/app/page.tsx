@@ -231,15 +231,28 @@ function DashboardContent() {
         <section className="bg-card rounded-3xl p-5 border border-white/10 shadow-lg">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold flex items-center gap-2">📚 Estudio</h2>
+            <Link href="/estudio" className="text-xs bg-white/10 hover:bg-white/20 transition-colors px-4 py-1.5 rounded-full font-semibold">
+              Ver plan
+            </Link>
           </div>
           {studyTask ? (
             <div className="bg-black/50 p-4 rounded-2xl border border-white/5 flex justify-between items-center gap-4">
-              <span className={`text-sm font-bold truncate ${studyTask.completed ? 'line-through text-gray-500' : 'text-white'}`}>
-                {studyTask.subject}
-              </span>
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm font-bold truncate ${studyTask.completed ? 'line-through text-gray-500' : 'text-white'}`}>
+                  {studyTask.subject}
+                </p>
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  {studyTask.totalMin > 0 && (
+                    <span className="text-[11px] font-bold text-amber-400">⏱️ {studyTask.totalMin} min</span>
+                  )}
+                  {studyTask.lessonsCount > 0 && (
+                    <span className="text-[11px] font-bold text-cyan-400">🎬 {studyTask.lessonsCount} clases</span>
+                  )}
+                </div>
+              </div>
               <button 
                 onClick={handleStudyToggle}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition-all shadow-lg
+                className={`px-4 py-2 rounded-xl text-xs font-black transition-all shadow-lg shrink-0
                   ${studyTask.completed ? 'bg-card text-gray-400 border border-white/10' : 'bg-white text-black hover:bg-gray-200'}`}
               >
                 {studyTask.completed ? 'Deshacer' : 'Completar'}

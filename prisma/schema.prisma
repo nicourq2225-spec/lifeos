@@ -61,11 +61,30 @@ model HabitLog {
 }
 
 // --- Módulo de Estudio ---
+model StudyCourse {
+  id                Int    @id @default(1)
+  title             String @default("Full Stack JavaScript Developer en Español")
+  platform          String @default("Udemy")
+  totalLessons      Int    @default(378)
+  totalDurationMin  Int    @default(3566)
+  totalSessions     Int    @default(39)
+  daysOfWeek        String @default("Martes,Jueves")
+  targetDurationMin Int    @default(90)
+  startDate         String @default("2026-10-22")
+  endDate           String @default("2027-03-04")
+}
+
 model StudyTask {
-  id        Int      @id @default(autoincrement())
-  date      DateTime
-  subject   String
-  completed Boolean  @default(false)
+  id            Int      @id @default(autoincrement())
+  sessionNumber Int?     // Número de jornada (1 a 39)
+  date          DateTime
+  dateStr       String?  // "YYYY-MM-DD"
+  dayOfWeek     String?  // "Martes", "Jueves"
+  subject       String
+  totalMin      Int      @default(90)
+  lessonsCount  Int      @default(0)
+  lessons       String?  // JSON array: [{ id, title, min, completed }]
+  completed     Boolean  @default(false)
 }
 
 // --- Módulo de Agenda Cíclica (21 Días) ---
