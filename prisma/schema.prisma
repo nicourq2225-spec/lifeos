@@ -202,3 +202,11 @@ model JournalAnswer {
   question   JournalQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
   answerText String
 }
+
+model JournalLearning {
+  id        Int      @id @default(autoincrement())
+  content   String   // Conocimiento adquirido / enseñanza extraída del journaling
+  dateStr   String   // "YYYY-MM-DD" del día en que se registró
+  pinned    Boolean  @default(false) // Permite destacar enseñanzas clave arriba de todo
+  createdAt DateTime @default(now())
+}
