@@ -34,6 +34,15 @@ export default function FinanzasPage() {
     }
     return "desc";
   });
+
+  // Estados del panel de filtros en Historial del Mes
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterType, setFilterType] = useState("ALL");
+  const [filterCategoryId, setFilterCategoryId] = useState("ALL");
+  const [filterBanco, setFilterBanco] = useState("ALL");
+  const [filterCuotas, setFilterCuotas] = useState("ALL");
+  const [filterDate, setFilterDate] = useState("");
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -61,7 +70,77 @@ export default function FinanzasPage() {
 
   useEffect(() => {
     fetchData();
+    // Si cambia de mes/año, limpiamos el filtro de día puntual para evitar ocultar todo el mes nuevo
+    setFilterDate("");
   }, [year, month]);
+
+  const activeFiltersCount = [
+    filterSearch.trim() !== "",
+    filterType !== "ALL",
+    filterCategoryId !== "ALL",
+    filterBanco !== "ALL",
+    filterCuotas !== "ALL",
+    filterDate !== "",
+  ].filter(Boolean).length;
+
+  const clearAllFilters = () => {
+    setFilterSearch("");
+    setFilterType("ALL");
+    setFilterCategoryId("ALL");
+    setFilterBanco("ALL");
+    setFilterCuotas("ALL");
+    setFilterDate("");
+  };
+
+  const filteredAndSortedTransactions = [...transactions]
+    .filter((t) => {
+      if (filterType !== "ALL" && t.type !== filterType) return false;
+      if (filterCategoryId !== "ALL" && String(t.category?.id) !== filterCategoryId) {
+        return false;
+      }
+      if (filterBanco !== "ALL" && (t.banco || "Efectivo") !== filterBanco) {
+        return false;
+      }
+      if (filterCuotas === "SINGLE" && (t.cuotas || 1) !== 1) return false;
+      if (filterCuotas === "INSTALLMENTS" && (t.cuotas || 1) <= 1) return false;
+      if (filterDate) {
+        const txDateStr = new Date(t.date).toLocaleDateString("en-CA", {
+          timeZone: "America/Argentina/Buenos_Aires",
+        });
+        if (txDateStr !== filterDate) return false;
+      }
+      if (filterSearch.trim()) {
+        const q = filterSearch.trim().toLowerCase();
+        const descMatch = (t.description || "").toLowerCase().includes(q);
+        const catMatch = (t.category?.name || "").toLowerCase().includes(q);
+        const parentMatch = (t.category?.parentName || "").toLowerCase().includes(q);
+        if (!descMatch && !catMatch && !parentMatch) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.date).toLocaleDateString("en-CA", {
+        timeZone: "America/Argentina/Buenos_Aires",
+      });
+      const dateB = new Date(b.date).toLocaleDateString("en-CA", {
+        timeZone: "America/Argentina/Buenos_Aires",
+      });
+      if (dateA !== dateB) {
+        return sortOrder === "desc"
+          ? dateB.localeCompare(dateA)
+          : dateA.localeCompare(dateB);
+      }
+      return sortOrder === "desc" ? b.id - a.id : a.id - b.id;
+    });
+
+  const filteredSum = filteredAndSortedTransactions.reduce(
+    (acc, t) => acc + (t.type === "INGRESO" ? t.amount : -t.amount),
+    0
+  );
+  const filteredTotalAbs = filteredAndSortedTransactions.reduce(
+    (acc, t) => acc + t.amount,
+    0
+  );
 
   const fetchData = async () => {
     setLoading(true);
@@ -337,9 +416,22 @@ export default function FinanzasPage() {
           </section>
 
           <section>
-            <div className="flex justify-between items-center gap-2 mb-4">
+            <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
               <h2 className="text-lg font-semibold">Historial del Mes</h2>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  aria-expanded={isFilterOpen}
+                  aria-controls="finanzas-filter-panel"
+                  onClick={() => setIsFilterOpen((prev) => !prev)}
+                  className={`text-xs font-semibold px-3 py-1 rounded-full border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400 ${
+                    isFilterOpen || activeFiltersCount > 0
+                      ? "bg-cyan-500/20 border-cyan-400/50 text-cyan-200"
+                      : "bg-card border-white/15 text-gray-300 hover:text-white"
+                  }`}
+                >
+                  🔍 Filtrar{activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ""}
+                </button>
                 <button
                   type="button"
                   onClick={() => setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
@@ -356,25 +448,184 @@ export default function FinanzasPage() {
                 </button>
               </div>
             </div>
+
+            {isFilterOpen && (
+              <div
+                id="finanzas-filter-panel"
+                className="bg-card border border-white/15 rounded-2xl p-4 mb-4 space-y-3"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label
+                      htmlFor="filter-search"
+                      className="text-xs text-gray-400 block mb-1"
+                    >
+                      Buscar por descripción o categoría
+                    </label>
+                    <input
+                      id="filter-search"
+                      type="search"
+                      value={filterSearch}
+                      onChange={(e) => setFilterSearch(e.target.value)}
+                      placeholder="Ej: Supermercado, nafta, cuota..."
+                      className="w-full bg-black border border-white/20 rounded-xl p-2 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="filter-type"
+                      className="text-xs text-gray-400 block mb-1"
+                    >
+                      Tipo de movimiento
+                    </label>
+                    <select
+                      id="filter-type"
+                      value={filterType}
+                      onChange={(e) => {
+                        setFilterType(e.target.value);
+                        setFilterCategoryId("ALL");
+                      }}
+                      className="w-full bg-black border border-white/20 rounded-xl p-2 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
+                    >
+                      <option value="ALL">Todos los tipos</option>
+                      <option value="GASTO_NECESARIO">Gasto Necesario</option>
+                      <option value="GASTO_INNECESARIO">Gasto Innecesario</option>
+                      <option value="INGRESO">Ingreso</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="filter-category"
+                      className="text-xs text-gray-400 block mb-1"
+                    >
+                      Categoría
+                    </label>
+                    <select
+                      id="filter-category"
+                      value={filterCategoryId}
+                      onChange={(e) => setFilterCategoryId(e.target.value)}
+                      className="w-full bg-black border border-white/20 rounded-xl p-2 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
+                    >
+                      <option value="ALL">Todas las categorías</option>
+                      {categories
+                        .filter((c) => filterType === "ALL" || c.type === filterType)
+                        .map((c) => (
+                          <option key={c.id} value={String(c.id)}>
+                            {c.parentName ? `${c.parentName} - ` : ""}
+                            {c.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="filter-banco"
+                      className="text-xs text-gray-400 block mb-1"
+                    >
+                      Banco / Cuenta
+                    </label>
+                    <select
+                      id="filter-banco"
+                      value={filterBanco}
+                      onChange={(e) => setFilterBanco(e.target.value)}
+                      className="w-full bg-black border border-white/20 rounded-xl p-2 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
+                    >
+                      <option value="ALL">Todas las cuentas</option>
+                      <option value="Efectivo">Efectivo</option>
+                      <option value="MercadoPago">MercadoPago</option>
+                      <option value="BBVA">BBVA</option>
+                      <option value="Bancor">Bancor</option>
+                      <option value="Naranja X">Naranja X</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="filter-cuotas"
+                      className="text-xs text-gray-400 block mb-1"
+                    >
+                      Cuotas
+                    </label>
+                    <select
+                      id="filter-cuotas"
+                      value={filterCuotas}
+                      onChange={(e) => setFilterCuotas(e.target.value)}
+                      className="w-full bg-black border border-white/20 rounded-xl p-2 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
+                    >
+                      <option value="ALL">Todas</option>
+                      <option value="INSTALLMENTS">En cuotas (&gt; 1)</option>
+                      <option value="SINGLE">Pago único (1 cuota)</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label
+                      htmlFor="filter-date"
+                      className="text-xs text-gray-400 block mb-1"
+                    >
+                      Día específico (opcional)
+                    </label>
+                    <input
+                      id="filter-date"
+                      type="date"
+                      value={filterDate}
+                      onChange={(e) => setFilterDate(e.target.value)}
+                      className="w-full bg-black border border-white/20 rounded-xl p-2 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
+                    />
+                  </div>
+                </div>
+
+                <div
+                  aria-live="polite"
+                  className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/10 text-xs"
+                >
+                  <div className="text-gray-300">
+                    Mostrando{" "}
+                    <strong className="text-white">
+                      {filteredAndSortedTransactions.length}
+                    </strong>{" "}
+                    de {transactions.length} registros ·{" "}
+                    <span className="text-gray-400">
+                      Total filtrado:{" "}
+                      <strong
+                        className={
+                          filterType === "ALL"
+                            ? filteredSum >= 0
+                              ? "text-positive"
+                              : "text-negative"
+                            : filterType === "INGRESO"
+                              ? "text-positive"
+                              : "text-negative"
+                        }
+                      >
+                        $
+                        {(filterType === "ALL"
+                          ? Math.abs(filteredSum)
+                          : filteredTotalAbs
+                        ).toLocaleString("es-AR")}
+                      </strong>
+                    </span>
+                  </div>
+
+                  {activeFiltersCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearAllFilters}
+                      className="text-xs font-bold text-cyan-300 hover:text-cyan-200 underline"
+                    >
+                      Limpiar filtros
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             
             {loading ? <p className="text-sm text-gray-500">Cargando...</p> : (
               <ul role="list" className="space-y-3">
-                {[...transactions]
-                  .sort((a, b) => {
-                    const dateA = new Date(a.date).toLocaleDateString("en-CA", {
-                      timeZone: "America/Argentina/Buenos_Aires",
-                    });
-                    const dateB = new Date(b.date).toLocaleDateString("en-CA", {
-                      timeZone: "America/Argentina/Buenos_Aires",
-                    });
-                    if (dateA !== dateB) {
-                      return sortOrder === "desc"
-                        ? dateB.localeCompare(dateA)
-                        : dateA.localeCompare(dateB);
-                    }
-                    return sortOrder === "desc" ? b.id - a.id : a.id - b.id;
-                  })
-                  .map(t => (
+                {filteredAndSortedTransactions.map(t => (
                   <li key={t.id} className="bg-card p-3 rounded-xl border border-white/5 flex justify-between items-center">
                     <div>
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -422,7 +673,13 @@ export default function FinanzasPage() {
                     </div>
                   </li>
                 ))}
-                {transactions.length === 0 && <li className="text-sm text-gray-400">No hay transacciones.</li>}
+                {filteredAndSortedTransactions.length === 0 && (
+                  <li className="text-sm text-gray-400">
+                    {transactions.length === 0
+                      ? "No hay transacciones."
+                      : "No hay transacciones que coincidan con los filtros aplicados."}
+                  </li>
+                )}
               </ul>
             )}
           </section>
