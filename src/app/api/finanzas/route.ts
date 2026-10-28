@@ -102,12 +102,18 @@ export async function POST(request: Request) {
     // Si cuotas > 1: dividir el monto total entre la cantidad de cuotas
     // Cuota 1 en la fecha seleccionada; Cuotas 2..N el día 1 de los meses sucesivos
     const installmentAmount = Math.round(totalAmount / totalCuotas);
+    const baseDescription = typeof description === 'string' ? description.trim() : '';
 
     const operations = Array.from({ length: totalCuotas }, (_, index) => {
+      const cuotaNumero = index + 1;
       const txDate =
         index === 0
           ? new Date(Date.UTC(year, month - 1, day, 12, 0, 0))
           : new Date(Date.UTC(year, month - 1 + index, 1, 12, 0, 0));
+
+      const installmentDescription = baseDescription
+        ? `${baseDescription} - Cuota número ${cuotaNumero}`
+        : `Cuota número ${cuotaNumero}`;
 
       return prisma.transaction.create({
         data: {
@@ -115,10 +121,10 @@ export async function POST(request: Request) {
           date: txDate,
           type,
           categoryId: parsedCategoryId,
-          description: description || null,
+          description: installmentDescription,
           banco,
           cuotas: totalCuotas,
-          cuotaActual: index + 1
+          cuotaActual: cuotaNumero
         }
       });
     });
