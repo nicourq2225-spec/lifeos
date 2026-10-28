@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { calculateCycleAndWeek } from "@/lib/agendaDefaults";
+import {
+  calculateCycleAndWeek,
+  getCycleDayDatesInActiveIteration,
+} from "@/lib/agendaDefaults";
 
 export async function POST(request: Request) {
   try {
@@ -18,13 +21,23 @@ export async function POST(request: Request) {
     const settings = await prisma.settings.findFirst();
     const cycleInfo = calculateCycleAndWeek(settings?.cycleStartDate, dateStr);
 
-    const targetDateStr = cycleInfo.todayStr;
-    const weekStartStr = cycleInfo.weekStartStr;
+    // Calcular la fecha exacta correspondiente al dayNumber (1..21) dentro de la iteración
+    // activa del ciclo de 21 días y el lunes de su respectiva semana para los puntos.
+    const { eventDateStr, eventWeekStartStr } = getCycleDayDatesInActiveIteration(
+      cycleInfo.cycleIterationStartStr,
+      event.dayNumber
+    );
+
+    const targetDateStr = eventDateStr;
+    const weekStartStr = eventWeekStartStr;
 
     const existingLog = await prisma.agendaEventLog.findFirst({
       where: {
         eventId: event.id,
-        dateStr: targetDateStr,
+        dateStr: {
+          gte: cycleInfo.cycleIterationStartStr,
+          lte: cycleInfo.cycleIterationEndStr,
+        },
       },
     });
 

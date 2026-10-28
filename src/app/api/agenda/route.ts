@@ -35,7 +35,7 @@ export async function GET(request: Request) {
       punishments,
       rewards,
       templates,
-      weekLogs,
+      cycleLogs,
       pendingPunishments,
       weekRedemptions,
     ] = await Promise.all([
@@ -57,7 +57,12 @@ export async function GET(request: Request) {
         orderBy: { id: "asc" },
       }),
       prisma.agendaEventLog.findMany({
-        where: { weekStartStr: cycleInfo.weekStartStr },
+        where: {
+          dateStr: {
+            gte: cycleInfo.cycleIterationStartStr,
+            lte: cycleInfo.cycleIterationEndStr,
+          },
+        },
         include: { event: true },
         orderBy: { createdAt: "desc" },
       }),
@@ -75,6 +80,9 @@ export async function GET(request: Request) {
         orderBy: { createdAt: "desc" },
       }),
     ]);
+
+    // Los puntos siguen teniendo vigencia únicamente semanal (vencen todos los lunes: Días 1, 8 y 15)
+    const weekLogs = cycleLogs.filter((l) => l.weekStartStr === cycleInfo.weekStartStr);
 
     const weeklyEarnedPoints = weekLogs
       .filter((l) => l.status === "COMPLETADO")
@@ -95,6 +103,7 @@ export async function GET(request: Request) {
       punishments,
       rewards,
       templates,
+      cycleLogs,
       weekLogs,
       pendingPunishments,
       weekRedemptions,

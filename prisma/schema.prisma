@@ -17,6 +17,8 @@ model Transaction {
   category    Category @relation(fields: [categoryId], references: [id])
   description String?
   banco       String? // Ej: MercadoPago, Efectivo, Banco Provincia
+  cuotas      Int      @default(1) // Cantidad total de cuotas (>= 1)
+  cuotaActual Int      @default(1) // Número de cuota (1..cuotas)
 }
 
 model Category {

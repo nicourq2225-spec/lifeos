@@ -6,7 +6,7 @@ import TransactionForm from "@/components/TransactionForm";
 import { toast } from "sonner";
 
 type Category = { id: number; name: string; type: string; parentName: string | null };
-type Transaction = { id: number; amount: number; date: string; description: string; type: string; banco: string | null; category: Category };
+type Transaction = { id: number; amount: number; date: string; description: string; type: string; banco: string | null; cuotas?: number; cuotaActual?: number; category: Category };
 type DeliverySession = { id: number; date: string; startTime: string | null; endTime: string | null; hours: number | null; earnings: number | null; orders: number | null };
 
 export default function FinanzasPage() {
@@ -334,8 +334,20 @@ export default function FinanzasPage() {
                 {transactions.map(t => (
                   <div key={t.id} className="bg-card p-3 rounded-xl border border-white/5 flex justify-between items-center">
                     <div>
-                      <p className="font-semibold text-sm">{t.category.name} <span className="text-xs text-gray-500 bg-black px-1 rounded ml-1">{t.banco || 'Efectivo'}</span></p>
-                      <p className="text-xs text-gray-500">{new Date(t.date).toLocaleDateString()} {t.description && `• ${t.description}`}</p>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="font-semibold text-sm">{t.category.name}</p>
+                        <span className="text-[11px] text-gray-400 bg-black px-1.5 py-0.5 rounded border border-white/5">{t.banco || 'Efectivo'}</span>
+                        {(t.cuotas || 1) > 1 ? (
+                          <span className="text-[11px] font-bold text-cyan-300 bg-cyan-500/15 border border-cyan-500/30 px-1.5 py-0.5 rounded">
+                            💳 Cuota {t.cuotaActual || 1}/{t.cuotas}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-gray-500 bg-black/60 px-1.5 py-0.5 rounded">
+                            Cuotas: 1
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">{new Date(t.date).toLocaleDateString('es-AR')} {t.description && `• ${t.description}`}</p>
                     </div>
                     <div className="text-right">
                       <p className={`font-bold ${t.type === 'INGRESO' ? 'text-positive' : 'text-negative'}`}>

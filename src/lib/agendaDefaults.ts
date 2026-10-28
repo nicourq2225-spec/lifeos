@@ -261,6 +261,15 @@ export function calculateCycleAndWeek(
   const weekStartCycleDay = (currentCycleWeek - 1) * 7 + 1; // 1, 8 o 15
   const weekEndCycleDay = currentCycleWeek * 7; // 7, 14 o 21
 
+  // Inicio (Día 1) y fin (Día 21) de la iteración activa del ciclo de 21 días.
+  // Permite persistir los estados COMPLETADO / PROCRASTINADO durante los 21 días
+  // y restablecerlos automáticamente al volver al Día 1 del siguiente ciclo.
+  const cycleIterationIndex = Math.floor(diffDays / 21);
+  const cycleIterationStartMs = startUtcMs + cycleIterationIndex * 21 * 86400000;
+  const cycleIterationEndMs = cycleIterationStartMs + 20 * 86400000;
+  const cycleIterationStartStr = new Date(cycleIterationStartMs).toISOString().split("T")[0];
+  const cycleIterationEndStr = new Date(cycleIterationEndMs).toISOString().split("T")[0];
+
   return {
     cycleStartDateStr: dateToUseStr,
     todayStr,
@@ -270,6 +279,37 @@ export function calculateCycleAndWeek(
     weekEndCycleDay,
     weekStartStr,
     weekEndStr,
+    cycleIterationStartStr,
+    cycleIterationEndStr,
+  };
+}
+
+/**
+ * Dado el `cycleIterationStartStr` (Día 1 del ciclo activo de 21 días) y un `dayNumber` (1..21),
+ * devuelve la fecha calendario exacta (`eventDateStr`) de ese día dentro del ciclo actual
+ * y el lunes correspondiente a su semana (`eventWeekStartStr`) para mantener el vencimiento
+ * semanal de puntos cada lunes (Días 1, 8 y 15).
+ */
+export function getCycleDayDatesInActiveIteration(
+  cycleIterationStartStr: string,
+  dayNumber: number
+) {
+  const clampedDay = Math.min(21, Math.max(1, dayNumber));
+  const [cy, cm, cd] = cycleIterationStartStr.split("-").map(Number);
+  const baseMs = Date.UTC(cy, cm - 1, cd);
+
+  const eventDateStr = new Date(baseMs + (clampedDay - 1) * 86400000)
+    .toISOString()
+    .split("T")[0];
+
+  const weekIndexInCycle = Math.floor((clampedDay - 1) / 7); // 0 (Sem 1), 1 (Sem 2), 2 (Sem 3)
+  const eventWeekStartStr = new Date(baseMs + weekIndexInCycle * 7 * 86400000)
+    .toISOString()
+    .split("T")[0];
+
+  return {
+    eventDateStr,
+    eventWeekStartStr,
   };
 }
 

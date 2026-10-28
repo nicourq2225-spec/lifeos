@@ -108,6 +108,7 @@ export default function AgendaPage() {
   const [punishments, setPunishments] = useState<Punishment[]>([]);
   const [rewards, setRewards] = useState<RewardItem[]>([]);
   const [templates, setTemplates] = useState<AgendaBlockTemplate[]>([]);
+  const [cycleLogs, setCycleLogs] = useState<AgendaEventLog[]>([]);
   const [weekLogs, setWeekLogs] = useState<AgendaEventLog[]>([]);
   const [pendingPunishments, setPendingPunishments] = useState<AgendaEventLog[]>([]);
   const [weekRedemptions, setWeekRedemptions] = useState<RewardRedemption[]>([]);
@@ -215,6 +216,7 @@ export default function AgendaPage() {
       setPunishments(data.punishments || []);
       setRewards(data.rewards || []);
       setTemplates(data.templates || []);
+      setCycleLogs(data.cycleLogs || data.weekLogs || []);
       setWeekLogs(data.weekLogs || []);
       setPendingPunishments(data.pendingPunishments || []);
       setWeekRedemptions(data.weekRedemptions || []);
@@ -517,9 +519,13 @@ export default function AgendaPage() {
       if (!res.ok) throw new Error();
 
       if (status === "COMPLETADO") {
+        const eventWeek = Math.floor((ev.dayNumber - 1) / 7) + 1;
+        const isCurrentWeek = eventWeek === pointsSummary.currentCycleWeek;
         toast.success(
           ev.rewardPoints > 0
-            ? `¡Bloque completado! +${ev.rewardPoints} pts sumados a tu semana`
+            ? isCurrentWeek
+              ? `¡Bloque completado! +${ev.rewardPoints} pts sumados a tu semana`
+              : `¡Bloque del Día ${ev.dayNumber} marcado como completado en este ciclo!`
             : "¡Bloque marcado como completado!"
         );
       } else {
@@ -1112,9 +1118,7 @@ export default function AgendaPage() {
             eventsForSelectedDay.map((event) => {
               const steps = parseInstructions(event.instructions);
               const isExpanded = Boolean(expandedEvents[event.id]);
-              const todayLog = weekLogs.find(
-                (l) => l.eventId === event.id && l.dateStr === todayStr
-              );
+              const eventCycleLog = cycleLogs.find((l) => l.eventId === event.id);
 
               return (
                 <div key={event.id} className="relative pl-6">
@@ -1245,25 +1249,25 @@ export default function AgendaPage() {
 
                     {/* Botones de Acción: Completado / Procrastinado */}
                     <div className="pt-2 border-t border-white/10 space-y-2">
-                      {todayLog ? (
+                      {eventCycleLog ? (
                         <div className="flex items-center justify-between bg-black/60 px-3 py-2 rounded-xl border border-white/10">
                           <span
                             className={`text-xs font-black ${
-                              todayLog.status === "COMPLETADO"
+                              eventCycleLog.status === "COMPLETADO"
                                 ? "text-positive"
                                 : "text-negative"
                             }`}
                           >
-                            {todayLog.status === "COMPLETADO"
-                              ? `✅ COMPLETADO (+${todayLog.pointsAwarded} pts)`
+                            {eventCycleLog.status === "COMPLETADO"
+                              ? `✅ COMPLETADO (+${eventCycleLog.pointsAwarded} pts)`
                               : `❌ PROCRASTINADO ${
-                                  todayLog.punishmentName
-                                    ? `(${todayLog.punishmentQty} ${todayLog.punishmentUnit || ""} ${todayLog.punishmentName})`
+                                  eventCycleLog.punishmentName
+                                    ? `(${eventCycleLog.punishmentQty} ${eventCycleLog.punishmentUnit || ""} ${eventCycleLog.punishmentName})`
                                     : ""
                                 }`}
                           </span>
                           <button
-                            onClick={() => handleUndoEventLog(todayLog.id)}
+                            onClick={() => handleUndoEventLog(eventCycleLog.id)}
                             className="text-[11px] text-gray-400 hover:text-white underline ml-2"
                           >
                             Deshacer
