@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+function toArgentinaDateKey(date: Date): string {
+  return date.toLocaleDateString('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+  });
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const month = searchParams.get('month'); // formato MM
@@ -8,34 +14,50 @@ export async function GET(request: Request) {
 
   let dateFilter = {};
   if (month && year) {
-    const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
-    const endDate = new Date(parseInt(year), parseInt(month), 1);
+    const y = parseInt(year, 10);
+    const m = parseInt(month, 10);
+    // 00:00:00 en Argentina (UTC-3) corresponde a 03:00:00 UTC
+    const startDate = new Date(Date.UTC(y, m - 1, 1, 3, 0, 0, 0));
+    const endDate = new Date(Date.UTC(y, m, 1, 3, 0, 0, 0));
     dateFilter = {
       date: {
         gte: startDate,
-        lt: endDate
-      }
+        lt: endDate,
+      },
     };
   }
 
   try {
-    const transactions = await prisma.transaction.findMany({
+    const rawTransactions = await prisma.transaction.findMany({
       where: dateFilter,
       include: {
-        category: true
+        category: true,
       },
-      orderBy: [
-        { date: 'desc' },
-        { id: 'desc' }
-      ]
+      orderBy: [{ date: 'desc' }, { id: 'desc' }],
+    });
+
+    // Orden estricto: 1) Fecha calendario en Argentina (YYYY-MM-DD) y 2) Orden exacto de creación (id)
+    const transactions = [...rawTransactions].sort((a, b) => {
+      const dateA = toArgentinaDateKey(a.date);
+      const dateB = toArgentinaDateKey(b.date);
+      if (dateA !== dateB) {
+        return dateB.localeCompare(dateA);
+      }
+      return b.id - a.id;
     });
 
     const categories = await prisma.category.findMany();
 
     // Cálculos
-    const ingresos = transactions.filter(t => t.type === 'INGRESO').reduce((a, b) => a + b.amount, 0);
-    const gastosNecesarios = transactions.filter(t => t.type === 'GASTO_NECESARIO').reduce((a, b) => a + b.amount, 0);
-    const gastosInnecesarios = transactions.filter(t => t.type === 'GASTO_INNECESARIO').reduce((a, b) => a + b.amount, 0);
+    const ingresos = transactions
+      .filter((t) => t.type === 'INGRESO')
+      .reduce((a, b) => a + b.amount, 0);
+    const gastosNecesarios = transactions
+      .filter((t) => t.type === 'GASTO_NECESARIO')
+      .reduce((a, b) => a + b.amount, 0);
+    const gastosInnecesarios = transactions
+      .filter((t) => t.type === 'GASTO_INNECESARIO')
+      .reduce((a, b) => a + b.amount, 0);
     const totalGastos = gastosNecesarios + gastosInnecesarios;
     const restante = ingresos - totalGastos;
 
@@ -47,8 +69,8 @@ export async function GET(request: Request) {
         gastosNecesarios,
         gastosInnecesarios,
         totalGastos,
-        restante
-      }
+        restante,
+      },
     });
   } catch (error) {
     return NextResponse.json({ error: 'Error fetching data' }, { status: 500 });
@@ -77,12 +99,15 @@ export async function POST(request: Request) {
         ? dateStr
         : typeof date === 'string'
           ? date.split('T')[0]
-          : new Date().toISOString().split('T')[0];
+          : new Date().toLocaleDateString('en-CA', {
+              timeZone: 'America/Argentina/Buenos_Aires',
+            });
 
     const [year, month, day] = rawDateStr.split('-').map(Number);
 
+    // 15:00:00 UTC = 12:00:00 mediodía en Argentina (UTC-3), consistente con todo el historial
     if (totalCuotas === 1) {
-      const singleDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+      const singleDate = new Date(Date.UTC(year, month - 1, day, 15, 0, 0));
       const transaction = await prisma.transaction.create({
         data: {
           amount: Math.round(totalAmount),
@@ -92,8 +117,8 @@ export async function POST(request: Request) {
           description: description || null,
           banco,
           cuotas: 1,
-          cuotaActual: 1
-        }
+          cuotaActual: 1,
+        },
       });
 
       return NextResponse.json(transaction, { status: 201 });
@@ -108,8 +133,8 @@ export async function POST(request: Request) {
       const cuotaNumero = index + 1;
       const txDate =
         index === 0
-          ? new Date(Date.UTC(year, month - 1, day, 12, 0, 0))
-          : new Date(Date.UTC(year, month - 1 + index, 1, 12, 0, 0));
+          ? new Date(Date.UTC(year, month - 1, day, 15, 0, 0))
+          : new Date(Date.UTC(year, month - 1 + index, 1, 15, 0, 0));
 
       const installmentDescription = baseDescription
         ? `${baseDescription} - Cuota número ${cuotaNumero}`
@@ -124,8 +149,8 @@ export async function POST(request: Request) {
           description: installmentDescription,
           banco,
           cuotas: totalCuotas,
-          cuotaActual: cuotaNumero
-        }
+          cuotaActual: cuotaNumero,
+        },
       });
     });
 
@@ -133,7 +158,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(createdTransactions[0], { status: 201 });
   } catch (error) {
-    console.error("CREATE TRANSACTION ERROR:", error);
+    console.error('CREATE TRANSACTION ERROR:', error);
     return NextResponse.json({ error: 'Error creating transaction' }, { status: 500 });
   }
 }
@@ -151,7 +176,7 @@ export async function PUT(request: Request) {
     let parsedDate: Date | undefined;
     if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
       const [y, m, d] = dateStr.split('-').map(Number);
-      parsedDate = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+      parsedDate = new Date(Date.UTC(y, m - 1, d, 15, 0, 0));
     } else if (date) {
       parsedDate = new Date(date);
     }
@@ -165,8 +190,8 @@ export async function PUT(request: Request) {
         categoryId: parseInt(String(categoryId), 10),
         description: description || null,
         banco,
-        ...(parsedCuotas !== undefined ? { cuotas: parsedCuotas } : {})
-      }
+        ...(parsedCuotas !== undefined ? { cuotas: parsedCuotas } : {}),
+      },
     });
 
     return NextResponse.json(transaction);
@@ -182,7 +207,7 @@ export async function DELETE(request: Request) {
     if (!id) return NextResponse.json({ error: 'No ID' }, { status: 400 });
 
     await prisma.transaction.delete({
-      where: { id: parseInt(id) }
+      where: { id: parseInt(id, 10) },
     });
 
     return NextResponse.json({ success: true });

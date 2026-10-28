@@ -87,7 +87,7 @@ export default function TransactionForm({
     setIsSubmitting(true);
     try {
       const [y, m, d] = date.split('-');
-      const safeDate = new Date(Date.UTC(parseInt(y), parseInt(m) - 1, parseInt(d), 12, 0, 0)).toISOString();
+      const safeDate = new Date(Date.UTC(parseInt(y), parseInt(m) - 1, parseInt(d), 15, 0, 0)).toISOString();
 
       const payload = {
         id: transactionToEdit?.id,

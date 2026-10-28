@@ -27,6 +27,13 @@ export default function FinanzasPage() {
     }
     return "general";
   });
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("lifeos_finanzas_sort");
+      if (saved === "asc" || saved === "desc") return saved;
+    }
+    return "desc";
+  });
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -37,6 +44,12 @@ export default function FinanzasPage() {
       localStorage.setItem("lifeos_finanzas_tab", activeTab);
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("lifeos_finanzas_sort", sortOrder);
+    }
+  }, [sortOrder]);
 
   const [transactionToEdit, setTransactionToEdit] = useState<Transaction | undefined>();
   const [categoryToEdit, setCategoryToEdit] = useState<Category | undefined>();
@@ -324,15 +337,45 @@ export default function FinanzasPage() {
           </section>
 
           <section>
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center gap-2 mb-4">
               <h2 className="text-lg font-semibold">Historial del Mes</h2>
-              <button onClick={openNewModal} className="text-xs bg-white text-black font-bold px-3 py-1 rounded-full">+ Nuevo</button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
+                  className="text-xs bg-card border border-white/15 text-gray-300 hover:text-white font-semibold px-3 py-1 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
+                >
+                  {sortOrder === "desc" ? "↓ Más recientes" : "↑ Cronológico"}
+                </button>
+                <button
+                  type="button"
+                  onClick={openNewModal}
+                  className="text-xs bg-white text-black font-bold px-3 py-1 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
+                >
+                  + Nuevo
+                </button>
+              </div>
             </div>
             
             {loading ? <p className="text-sm text-gray-500">Cargando...</p> : (
-              <div className="space-y-3">
-                {transactions.map(t => (
-                  <div key={t.id} className="bg-card p-3 rounded-xl border border-white/5 flex justify-between items-center">
+              <ul role="list" className="space-y-3">
+                {[...transactions]
+                  .sort((a, b) => {
+                    const dateA = new Date(a.date).toLocaleDateString("en-CA", {
+                      timeZone: "America/Argentina/Buenos_Aires",
+                    });
+                    const dateB = new Date(b.date).toLocaleDateString("en-CA", {
+                      timeZone: "America/Argentina/Buenos_Aires",
+                    });
+                    if (dateA !== dateB) {
+                      return sortOrder === "desc"
+                        ? dateB.localeCompare(dateA)
+                        : dateA.localeCompare(dateB);
+                    }
+                    return sortOrder === "desc" ? b.id - a.id : a.id - b.id;
+                  })
+                  .map(t => (
+                  <li key={t.id} className="bg-card p-3 rounded-xl border border-white/5 flex justify-between items-center">
                     <div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         <p className="font-semibold text-sm">{t.category.name}</p>
@@ -347,21 +390,40 @@ export default function FinanzasPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 mt-0.5">{new Date(t.date).toLocaleDateString('es-AR')} {t.description && `• ${t.description}`}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {new Date(t.date).toLocaleDateString('es-AR', {
+                          timeZone: 'America/Argentina/Buenos_Aires'
+                        })}{' '}
+                        {t.description && `• ${t.description}`}
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className={`font-bold ${t.type === 'INGRESO' ? 'text-positive' : 'text-negative'}`}>
                         {t.type === 'INGRESO' ? '+' : '-'}${t.amount.toLocaleString('es-AR')}
                       </p>
                       <div className="flex gap-2 justify-end mt-1">
-                        <button onClick={() => openEditModal(t)} className="text-[10px] text-gray-400 hover:text-white">Editar</button>
-                        <button onClick={() => handleDeleteTransaction(t.id)} className="text-[10px] text-negative hover:underline">Borrar</button>
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(t)}
+                          aria-label={`Editar ${t.category.name} ${t.description || ''}`.trim()}
+                          className="text-[10px] text-gray-400 hover:text-white"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTransaction(t.id)}
+                          aria-label={`Borrar ${t.category.name} ${t.description || ''}`.trim()}
+                          className="text-[10px] text-negative hover:underline"
+                        >
+                          Borrar
+                        </button>
                       </div>
                     </div>
-                  </div>
+                  </li>
                 ))}
-                {transactions.length === 0 && <p className="text-sm text-gray-400">No hay transacciones.</p>}
-              </div>
+                {transactions.length === 0 && <li className="text-sm text-gray-400">No hay transacciones.</li>}
+              </ul>
             )}
           </section>
         </div>
